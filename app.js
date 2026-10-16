@@ -180,7 +180,7 @@ function footer(){
       '<div><h4>Program</h4><ul><li><a href="#home">Home</a></li><li><a href="#calendar">Session calendar</a></li><li><a href="#questions">Questions</a></li></ul></div>' +
       '<div><h4>Contact</h4><ul>' + mail(EMAILS.baron) + mail(EMAILS.shoup) + '</ul></div>' +
       '<div><h4>About</h4><ul><li>SAS Middle School Model UN</li><li>Grades 6–8</li><li><a href="#questions">Our team members</a></li></ul></div>' +
-    '</div><div class="base">© ' + new Date().getFullYear() + ' St. Andrew\'s Episcopal School · Middle School Model United Nations<button class="ownerlink" data-act="' + (ui.owner ? 'ownerLogout' : 'ownerLogin') + '">' + (ui.owner ? 'Owner sign out' : 'Owner sign-in') + '</button></div></div></footer>';
+    '</div><div class="base">© ' + new Date().getFullYear() + ' St. Andrew\'s Episcopal School · Middle School Model United Nations</div></div></footer>';
 }
 function photoFrame(p, big){
   return p.path ? '<div class="frame filled"><img src="' + blobHref(p.path) + '" alt="' + esc(p.caption || "Committee photo") + '"' + (big ? '' : ' loading="lazy"') + '></div>'
@@ -263,6 +263,7 @@ function calendarView(){
   var key = y + "-" + pad(m+1);
   var monthItems = sorted().filter(function(x){ return x.date.slice(0,7) === key; });
   var agenda = monthItems.length ? monthItems.map(function(x){ return card(x, soon(x)); }).join("") : '<div class="empty">No meetings in ' + MONTHS[m] + '.' + (ui.owner ? ' Use Add Meeting to schedule one.' : ' Check back soon.') + '</div>';
+  if(ui.calError) agenda = '<div class="empty" style="border-color:#c0392b">The calendar file could not be read. Check data/calender.json for a missing comma, quote or bracket.</div>' + agenda;
   var upcoming = sorted().filter(function(x){ return x.date >= t && x.date.slice(0,7) !== key; }).slice(0,3);
 
   return '<section class="page-head dark"><div class="wrap"><div><span class="kicker-strip">Session calendar</span><h1>Meetings &amp; committees</h1><p>Select a meeting for its topic, chair, background guide and country assignments.</p></div>' +
@@ -464,13 +465,26 @@ app.addEventListener("submit", async function(e){
 
 
 /* ---------- boot ---------- */
+function normMeeting(m, i){
+  var g = m.guide;
+  if(typeof g === "string" && g){ g = { path:g, name:g.split("/").pop() }; }
+  else if(!(g && typeof g === "object" && g.path)){ g = null; }
+  return { id: m.id || ("m" + i), date:String(m.date || ""), time:String(m.time || ""), name:String(m.name || "Untitled meeting"), topic:String(m.topic || ""), chair:String(m.chair || ""), email:String(m.email || ""), sheet:String(m.sheet || ""), guide:g };
+}
 render();
 (async function(){
   try{
     var res = await fetch("data/site.json?t=" + Date.now(), { cache:"no-store" });
-    if(res.ok && !ui.owner){ state = await res.json(); S = JSON.parse(JSON.stringify(state)); render(); }
+    if(res.ok){ var d = await res.json(); state.summary = d.summary || ""; state.photos = d.photos || state.photos; }
   }catch(e){}
-  var tok = lsGet("sas_gh_token"), r = repoInfo();
-  if(tok && r.o && r.r){ try{ await enterOwner(r.o, r.r, tok); }catch(e){ if(e.status === 401) lsDel("sas_gh_token"); } }
+  try{
+    var rc = await fetch("data/calender.json?t=" + Date.now(), { cache:"no-store" });
+    if(rc.ok){
+      var c = await rc.json();
+      var list = Array.isArray(c) ? c : (c.meetings || []);
+      state.meetings = list.filter(function(m){ return m && /^\d{4}-\d{2}-\d{2}$/.test(m.date || ""); }).map(normMeeting);
+    }
+  }catch(e){ ui.calError = true; }
+  render();
 })();
 })();
