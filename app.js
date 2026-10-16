@@ -8,7 +8,7 @@ var app = document.getElementById("app");
 var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 var DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>\"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
 function pad(n){ return (n < 10 ? "0" : "") + n; }
 function ymd(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
 function parse(s){ var p = String(s).split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
@@ -25,7 +25,7 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 if(!ui.month){ var t = new Date(); ui.month = { y:t.getFullYear(), m:t.getMonth() }; }
 var h = (location.hash || "").replace("#","");
 if(h === "calendar" || h === "questions" || h === "home") ui.view = h;
-window.addEventListener("hashchange", function(){ var v = location.hash.replace("#",""); if(v === "calendar" || v === "questions" || v === "home"){ ui.view = v; render(); window.scrollTo(0,0); } });
+window.addEventListener("hashchange", function(){ var v = location.hash.replace("#",""); if(v === "calendar" || v === "questions" || v === "home"){ ui.view = v; render(); window.scrollTo(0,0); } }[...]
 
 /* ---------- toast ---------- */
 var toastTimer;
@@ -103,6 +103,26 @@ async function save(next, okMsg){
   }finally{ ui.busy = false; render(); }
 }
 
+// New: save the calendar (meetings) to a JSON file in /data so events can be edited by repository JSON.
+async function saveCalendar(meetings, okMsg){
+  if(ui.busy) return false;
+  ui.busy = true; render();
+  try{
+    // Keep file shape flexible: store as an object with meetings array to match older expectations
+    var payload = { meetings: meetings };
+    await putFile("data/calender.json", utf8b64(JSON.stringify(payload, null, 1)), okMsg || "Update calendar");
+    // Normalize and update local state and saved baseline S
+    var normalized = (Array.isArray(meetings) ? meetings : []).filter(function(m){ return m && /^\d{4}-\d{2}-\d{2}$/.test(m.date || ""); }).map(normMeeting);
+    state.meetings = normalized;
+    S.meetings = JSON.parse(JSON.stringify(normalized));
+    toast((okMsg || "Saved") + ". Visitors see it in about a minute.");
+    return true;
+  }catch(e){
+    toast(e.message || "Couldn't save calendar. Try again in a moment.");
+    return false;
+  }finally{ ui.busy = false; render(); }
+}
+
 /* ---------- uploads (owner only) ---------- */
 async function uploadPdf(file){
   if(!ui.owner) throw new Error("Sign in as owner to upload files.");
@@ -137,8 +157,8 @@ async function uploadImage(file){
 function uploadErr(e){ return (e && e.message) || "Upload failed."; }
 
 /* ---------- views ---------- */
-var ICON_PHOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-9 8"></path></svg>';
-var GLOBE = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="16" cy="16" r="13"></circle><ellipse cx="16" cy="16" rx="5.5" ry="13"></ellipse><path d="M3.6 11h24.8M3.6 21h24.8M16 3v26"></path></svg>';
+var ICON_PHOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14"></rect><circle cx="9" cy="10" r="2"></c[...]
+var GLOBE = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="16" cy="16" r="13"></circle><ellipse cx="16" cy="16" rx="5.5" ry="13"></e[...]
 var WATERMARK = '<img class="watermark" src="' + L.un + '" alt="" aria-hidden="true">';
 
 function clock(t){ if(!t) return ""; var p = t.split(":"), hh = +p[0], mm = p[1]; return ((hh % 12) || 12) + ":" + mm + " " + (hh < 12 ? "AM" : "PM"); }
@@ -169,14 +189,14 @@ function header(){
     '<div class="ticker"><div class="wrap">' + tick + '</div></div>';
 }
 function footer(){
-  function mail(p){ return '<li><strong style="font-weight:600;color:#fff">' + p.name + '</strong><br><span style="color:rgba(255,255,255,.55);font-size:.85rem">' + p.role + '</span><br><a class="em" href="mailto:' + p.email + '">' + p.email + '</a></li>'; }
+  function mail(p){ return '<li><strong style="font-weight:600;color:#fff">' + p.name + '</strong><br><span style="color:rgba(255,255,255,.55);font-size:.85rem">' + p.role + '</span><br><a class=[...]
   return '<div class="logo-band"><div class="wrap">' +
       '<img src="' + L.horiz + '" alt="St. Andrew\'s Episcopal School K-12">' +
       '<p>Middle School Model UN only. Not affiliated with the Upper School team or the United Nations.</p>' +
       '<img class="mono" src="' + L.monogram + '" alt="SAS monogram">' +
     '</div></div>' +
     '<footer><div class="wrap"><div class="cols">' +
-      '<div><a class="brand" href="#home" style="color:#fff">' + GLOBE + '<b>SAS <span>MUN</span></b></a><p class="small" style="margin-top:14px">The Model United Nations program for middle school students at St. Andrew\'s Episcopal School in Austin, Texas.</p></div>' +
+      '<div><a class="brand" href="#home" style="color:#fff">' + GLOBE + '<b>SAS <span>MUN</span></b></a><p class="small" style="margin-top:14px">The Model United Nations program for middle schoo[...]
       '<div><h4>Program</h4><ul><li><a href="#home">Home</a></li><li><a href="#calendar">Session calendar</a></li><li><a href="#questions">Questions</a></li></ul></div>' +
       '<div><h4>Contact</h4><ul>' + mail(EMAILS.baron) + mail(EMAILS.shoup) + '</ul></div>' +
       '<div><h4>About</h4><ul><li>SAS Middle School Model UN</li><li>Grades 6–8</li><li><a href="#questions">Our team members</a></li></ul></div>' +
@@ -203,12 +223,12 @@ function homeView(){
   var nm = nextMeeting(), lead = state.photos[0];
   var dek;
   if(ui.editSummary){
-    dek = '<form id="sumForm" style="margin-top:18px;display:flex;flex-direction:column;gap:10px"><label for="sumText">Program summary<span class="hint">Plain text. Line breaks are kept.</span><textarea id="sumText">' + esc(state.summary) + '</textarea></label>' +
-      '<div class="row"><button class="btn btn-primary" type="submit"' + (ui.busy?' disabled':'') + '>' + (ui.busy?'Saving…':'Save summary') + '</button><button class="btn" type="button" data-act="cancelSummary">Cancel</button></div></form>';
+    dek = '<form id="sumForm" style="margin-top:18px;display:flex;flex-direction:column;gap:10px"><label for="sumText">Program summary<span class="hint">Plain text. Line breaks are kept.</span><t[...]
+      '<div class="row"><button class="btn btn-primary" type="submit"' + (ui.busy?' disabled':'') + '>' + (ui.busy?'Saving…':'Save summary') + '</button><button class="btn" type="button" data-a[...]
   } else if(state.summary){
     dek = '<p class="dek">' + esc(state.summary) + '</p>';
   } else {
-    dek = '<p class="dek placeholder">Summary placeholder. Your introduction to SAS Middle School Model UN goes here: what the program is, who can join, when the club meets, and which conferences the team attends.</p>';
+    dek = '<p class="dek placeholder">Summary placeholder. Your introduction to SAS Middle School Model UN goes here: what the program is, who can join, when the club meets, and which conferences[...]
   }
   var upcoming = sorted().filter(function(m){ return m.date >= today(); }).slice(0, 6);
   var cards = upcoming.length ? '<div class="cards">' + upcoming.map(function(x){ return card(x, soon(x)); }).join("") + '</div>'
@@ -235,15 +255,15 @@ function homeView(){
       '</div>' +
       '<div class="lead-media">' + photoFrame(lead, true) + '<img class="seal-stamp" src="' + L.seal + '" alt="Seal of Saint Andrew\'s Episcopal School, 1952"></div>' +
     '</div></section>' +
-    '<section class="band"><div class="wrap"><div class="section-label"><div><span class="eyebrow">On the calendar</span><h2>Upcoming sessions</h2></div><a class="btn btn-sm" href="#calendar">full calendar</a></div>' + cards + '</div></section>' +
-    '<section class="band alt"><div class="wrap"><div class="section-label"><div><span class="eyebrow">Inside a committee</span><h2>How a session works</h2><p>Every committee follows the same path as a real UN body, from research to a final vote.</p></div></div>' +
-      '<div class="cards four">' + STAGES.map(function(s){ return '<article class="card"><span class="cat">' + s.cat + '</span><h3>' + s.title + '</h3><p>' + s.text + '</p></article>'; }).join("") + '</div></div></section>' +
+    '<section class="band"><div class="wrap"><div class="section-label"><div><span class="eyebrow">On the calendar</span><h2>Upcoming sessions</h2></div><a class="btn btn-sm" href="#calendar">ful[...]
+    '<section class="band alt"><div class="wrap"><div class="section-label"><div><span class="eyebrow">Inside a committee</span><h2>How a session works</h2><p>Every committee follows the same pat[...]
+      '<div class="cards four">' + STAGES.map(function(s){ return '<article class="card"><span class="cat">' + s.cat + '</span><h3>' + s.title + '</h3><p>' + s.text + '</p></article>'; }).join(""[...]
     '<section class="band"><div class="wrap"><div class="section-label"><div><span class="eyebrow">Photos</span><h2>From the committee room</h2></div>' +
       (ui.owner && !ui.editGallery ? '<button class="btn btn-sm" data-act="editGallery">Edit photos</button>' : '') + '</div>' +
-      (ui.editGallery ? '<form id="galForm"><div class="photo-feed">' + photos + '</div><p class="err" id="galErr"></p><div class="row"><button class="btn btn-primary" type="submit"' + (ui.busy?' disabled':'') + '>' + (ui.busy?'Saving…':'Save photos') + '</button><button class="btn" type="button" data-act="cancelGallery">Cancel</button></div></form>'
+      (ui.editGallery ? '<form id="galForm"><div class="photo-feed">' + photos + '</div><p class="err" id="galErr"></p><div class="row"><button class="btn btn-primary" type="submit"' + (ui.busy?'[...]
                       : '<div class="photo-feed">' + photos + '</div>') +
     '</div></section>' +
-    '<section class="band tint cta-band"><div class="wrap"><div><h2>Have a question?</h2><p>Parents can reach our parent communication lead, and our faculty sponsor is always available.</p></div><a class="btn btn-primary" href="#questions">Contact the team</a></div></section>';
+    '<section class="band tint cta-band"><div class="wrap"><div><h2>Have a question?</h2><p>Parents can reach our parent communication lead, and our faculty sponsor is always available.</p></div>[...]
 }
 
 function calendarView(){
@@ -262,15 +282,15 @@ function calendarView(){
   }
   var key = y + "-" + pad(m+1);
   var monthItems = sorted().filter(function(x){ return x.date.slice(0,7) === key; });
-  var agenda = monthItems.length ? monthItems.map(function(x){ return card(x, soon(x)); }).join("") : '<div class="empty">No meetings in ' + MONTHS[m] + '.' + (ui.owner ? ' Use Add Meeting to schedule one.' : ' Check back soon.') + '</div>';
-  if(ui.calError) agenda = '<div class="empty" style="border-color:#c0392b">The calendar file could not be read. Check data/calender.json for a missing comma, quote or bracket.</div>' + agenda;
+  var agenda = monthItems.length ? monthItems.map(function(x){ return card(x, soon(x)); }).join("") : '<div class="empty">No meetings in ' + MONTHS[m] + '.' + (ui.owner ? ' Use Add Meeting to sch[...]
+  if(ui.calError) agenda = '<div class="empty" style="border-color:#c0392b">The calendar file could not be read. Check data/calendar.json or data/calender.json for a missing comma, quote or bracket.</div>' + agenda;
   var upcoming = sorted().filter(function(x){ return x.date >= t && x.date.slice(0,7) !== key; }).slice(0,3);
 
-  return '<section class="page-head dark"><div class="wrap"><div><span class="kicker-strip">Session calendar</span><h1>Meetings &amp; committees</h1><p>Select a meeting for its topic, chair, background guide and country assignments.</p></div>' +
-      (ui.owner ? '<div class="row"><span class="owner-flag">● Editing as owner</span><button class="btn btn-primary" data-add="' + (key === t.slice(0,7) ? t : key + "-01") + '">+ Add Meeting</button></div>' : '') +
+  return '<section class="page-head dark"><div class="wrap"><div><span class="kicker-strip">Session calendar</span><h1>Meetings &amp; committees</h1><p>Select a meeting for its topic, chair, back[...]
+      (ui.owner ? '<div class="row"><span class="owner-flag">● Editing as owner</span><button class="btn btn-primary" data-add="' + (key === t.slice(0,7) ? t : key + "-01") + '">+ Add Meeting</[...]
     '</div></section>' +
     '<section class="band alt"><div class="wrap"><div class="cal-shell"><div><div class="cal-bar"><h2>' + MONTHS[m] + ' ' + y + '</h2>' +
-      '<button class="btn btn-sm" data-act="prev" aria-label="Previous month">‹ prev</button><button class="btn btn-sm" data-act="thisMonth">today</button><button class="btn btn-sm" data-act="next" aria-label="Next month">next ›</button></div>' +
+      '<button class="btn btn-sm" data-act="prev" aria-label="Previous month">‹ prev</button><button class="btn btn-sm" data-act="thisMonth">today</button><button class="btn btn-sm" data-act="n[...]
       '<div class="cal-grid">' + cells + '</div></div>' +
       '<div class="agenda"><h2>' + MONTHS[m] + '</h2>' + agenda +
         (upcoming.length ? '<h2 style="margin-top:12px">Coming up</h2>' + upcoming.map(function(x){ return card(x, soon(x)); }).join("") : '') +
@@ -291,8 +311,8 @@ function questionsView(){
     { name:"James Berg", email:"jamesberg32@sasaustin.org" },
     { name:"William Spong", email:"williamspong32@sasaustin.org" }
   ];
-  return '<section class="page-head dark"><div class="wrap"><div><span class="kicker-strip">Questions</span><h1>Who to contact</h1><p>Email whoever fits your question. Tap an address to open your mail app, or copy it.</p></div></div></section>' +
-    '<section class="band alt"><div class="wrap"><div class="people">' + leads.map(function(l){ return '<div class="person"><span class="role">' + l.p.role + '</span><h2>' + l.p.name + '</h2><p>' + l.note + '</p>' + mailRow(l.p.email) + '</div>'; }).join("") + '</div></div></section>' +
+  return '<section class="page-head dark"><div class="wrap"><div><span class="kicker-strip">Questions</span><h1>Who to contact</h1><p>Email whoever fits your question. Tap an address to open your[...]
+    '<section class="band alt"><div class="wrap"><div class="people">' + leads.map(function(l){ return '<div class="person"><span class="role">' + l.p.role + '</span><h2>' + l.p.name + '</h2><p>'[...]
     '<section class="band"><div class="wrap"><div class="tabs"><span>Our other team members</span></div>' +
     '<div class="people team">' + team.map(function(p){ return '<div class="person"><h2>' + p.name + '</h2>' + mailRow(p.email) + '</div>'; }).join("") + '</div></div></section>';
 }
@@ -300,12 +320,12 @@ function questionsView(){
 /* ---------- dialogs ---------- */
 function find(id){ for(var i = 0; i < state.meetings.length; i++) if(state.meetings[i].id === id) return state.meetings[i]; return null; }
 function detailDialog(x){
-  var guide = x.guide ? '<a class="btn btn-primary" href="' + blobHref(x.guide.path) + '" target="_blank" rel="noopener">Background guide (PDF)</a>' : '<span style="color:var(--dim)">Background guide not posted yet.</span>';
-  var sheet = safeUrl(x.sheet) ? '<a class="btn" href="' + esc(x.sheet) + '" target="_blank" rel="noopener">Country assignments ↗</a>' : '<span style="color:var(--dim)">Country assignments not posted yet.</span>';
+  var guide = x.guide ? '<a class="btn btn-primary" href="' + blobHref(x.guide.path) + '" target="_blank" rel="noopener">Background guide (PDF)</a>' : '<span style="color:var(--dim)">Background g[...]
+  var sheet = safeUrl(x.sheet) ? '<a class="btn" href="' + esc(x.sheet) + '" target="_blank" rel="noopener">Country assignments ↗</a>' : '<span style="color:var(--dim)">Country assignments not [...]
   var ownerFoot = ui.owner ? (ui.modal.confirm
-      ? '<div class="confirm"><span>Delete “' + esc(x.name) + '”? It disappears from the calendar for everyone.</span><button class="btn btn-danger btn-sm" data-act="reallyDelete"' + (ui.busy?' disabled':'') + '>' + (ui.busy?'Deleting…':'Delete meeting') + '</button><button class="btn btn-sm" data-act="noDelete">Keep it</button></div>'
+      ? '<div class="confirm"><span>Delete “' + esc(x.name) + '”? It disappears from the calendar for everyone.</span><button class="btn btn-danger btn-sm" data-act="reallyDelete"' + (ui.busy[...]
       : '<button class="btn btn-danger" data-act="askDelete">Delete</button><button class="btn btn-primary" data-edit="' + esc(x.id) + '">Edit meeting</button>') : '';
-  return '<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle"><div class="dialog-head"><div><span class="kicker-strip">' + (soon(x) ? 'This week' : 'Session') + '</span><h2 id="dlgTitle">' + esc(x.name) + '</h2><div class="dateline">' + dateline(x) + '</div></div><button class="x" data-act="close" aria-label="Close">×</button></div>' +
+  return '<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle"><div class="dialog-head"><div><span class="kicker-strip">' + (soon(x) ? 'This week' : 'Session') + '</span[...]
     '<div class="dialog-body"><dl class="byline">' +
       '<dt>Topic:</dt><dd>' + (esc(x.topic) || '—') + '</dd>' +
       '<dt>Chair:</dt><dd>' + (esc(x.chair) || '—') + '</dd>' +
@@ -315,24 +335,24 @@ function detailDialog(x){
 }
 function formDialog(x){
   var v = x || { date: ui.modal.date || today(), time:"", name:"", topic:"", chair:"", email:"", sheet:"", guide:null };
-  return '<form class="dialog" id="mtgForm" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" novalidate><div class="dialog-head"><div><span class="kicker-strip">Owner only</span><h2 id="dlgTitle">' + (x ? 'Edit meeting' : 'Add Meeting') + '</h2></div><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>' +
+  return '<form class="dialog" id="mtgForm" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" novalidate><div class="dialog-head"><div><span class="kicker-strip">Owner only</span><h2 id=[...]
     '<div class="dialog-body"><div class="form-grid">' +
       '<label for="f_date">Date<input id="f_date" type="date" required value="' + esc(v.date) + '"></label>' +
       '<label for="f_time">Start time<span class="hint">Optional</span><input id="f_time" type="time" value="' + esc(v.time || "") + '"></label>' +
-      '<label class="full" for="f_name">Meeting name<span class="hint">Shown under the date</span><input id="f_name" type="text" required maxlength="80" value="' + esc(v.name) + '" placeholder="UN Security Council"></label>' +
+      '<label class="full" for="f_name">Meeting name<span class="hint">Shown under the date</span><input id="f_name" type="text" required maxlength="80" value="' + esc(v.name) + '" placeholder="U[...]
       '<label class="full" for="f_topic">Topic<input id="f_topic" type="text" maxlength="160" value="' + esc(v.topic) + '" placeholder="Water security in the Nile basin"></label>' +
       '<label for="f_chair">Committee chair<input id="f_chair" type="text" maxlength="80" value="' + esc(v.chair) + '"></label>' +
       '<label for="f_email">Chair email<input id="f_email" type="email" maxlength="120" value="' + esc(v.email) + '" placeholder="name@sasaustin.org"></label>' +
-      '<label class="full" for="f_pdf">Background guide<span class="hint">PDF only' + (v.guide ? '. Current file: ' + esc(v.guide.name) + '. Choose a new PDF to replace it.' : '') + '</span><input id="f_pdf" type="file" accept="application/pdf,.pdf"' + (ui.assets ? '' : ' disabled') + '></label>' +
-      (v.guide ? '<label class="full" style="flex-direction:row;align-items:center;text-transform:none;letter-spacing:0;font-weight:400;font-size:.92rem"><input id="f_rmpdf" type="checkbox"> Remove the current background guide</label>' : '') +
-      '<label class="full" for="f_sheet">Country assignments<span class="hint">Google Sheet link. Set sharing to “Anyone with the link can view.”</span><input id="f_sheet" type="url" value="' + esc(v.sheet) + '" placeholder="https://docs.google.com/spreadsheets/d/…"></label>' +
+      '<label class="full" for="f_pdf">Background guide<span class="hint">PDF only' + (v.guide ? '. Current file: ' + esc(v.guide.name) + '. Choose a new PDF to replace it.' : '') + '</span><inpu[...]
+      (v.guide ? '<label class="full" style="flex-direction:row;align-items:center;text-transform:none;letter-spacing:0;font-weight:400;font-size:.92rem"><input id="f_rmpdf" type="checkbox"> Remo[...]
+      '<label class="full" for="f_sheet">Country assignments<span class="hint">Google Sheet link. Set sharing to “Anyone with the link can view.”</span><input id="f_sheet" type="url" value="'[...]
     '</div><p class="err" id="formErr"></p></div>' +
-    '<div class="dialog-foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn btn-primary"' + (ui.busy?' disabled':'') + '>' + (ui.busy ? 'Saving…' : (x ? 'Save changes' : 'Add to calendar')) + '</button></div></form>';
+    '<div class="dialog-foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn btn-primary"' + (ui.busy?' disabled':'') + '>' + (ui.busy ? 'Savin[...]
 }
 function loginDialog(){
   var r = repoInfo(), val = r.o ? r.o + "/" + r.r : "";
-  return '<form class="dialog" id="loginForm" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" novalidate><div class="dialog-head"><div><span class="kicker-strip">Owner only</span><h2 id="dlgTitle">Owner sign-in</h2></div><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>' +
-    '<div class="dialog-body"><p style="margin:0;color:var(--dim)">Paste a GitHub fine-grained token that has <strong>Contents: read and write</strong> for this repository only. It is kept in this browser and sent only to GitHub.</p>' +
+  return '<form class="dialog" id="loginForm" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" novalidate><div class="dialog-head"><div><span class="kicker-strip">Owner only</span><h2 i[...]
+    '<div class="dialog-body"><p style="margin:0;color:var(--dim)">Paste a GitHub fine-grained token that has <strong>Contents: read and write</strong> for this repository only. It is kept in thi[...]
     '<div class="form-grid"><label class="full" for="l_repo">Repository<input id="l_repo" type="text" value="' + esc(val) + '" placeholder="owner/repo"></label>' +
     '<label class="full" for="l_token">GitHub token<input id="l_token" type="password" autocomplete="off" placeholder="github_pat_…"></label></div><p class="err" id="loginErr"></p></div>' +
     '<div class="dialog-foot"><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn btn-primary">Sign in</button></div></form>';
@@ -370,14 +390,14 @@ app.addEventListener("click", async function(e){
   if(t.dataset.copy){
     var val = t.dataset.copy;
     try{ await navigator.clipboard.writeText(val); toast("Copied " + val); }
-    catch(err){ var a = t.parentNode.querySelector("a"); if(a){ var r = document.createRange(); r.selectNodeContents(a); var s = getSelection(); s.removeAllRanges(); s.addRange(r); } toast("Press Ctrl+C or ⌘C to copy the selected address"); }
+    catch(err){ var a = t.parentNode.querySelector("a"); if(a){ var r = document.createRange(); r.selectNodeContents(a); var s = getSelection(); s.removeAllRanges(); s.addRange(r); } toast("Press[...]
     return;
   }
   if(t.dataset.clearphoto){ var i = +t.dataset.clearphoto; collectCaptions(); state.photos[i].path = null; state.photos[i]._cleared = true; render(); return; }
   var act = t.dataset.act;
   if(act === "close"){ if(!ui.busy){ ui.modal = null; render(); } }
   else if(act === "ownerLogin"){ ui.modal = { kind:"login" }; render(); var tk = document.getElementById("l_token"); if(tk) tk.focus(); }
-  else if(act === "ownerLogout"){ lsDel("sas_gh_token"); ui.owner = false; ui.assets = false; ui.editSummary = false; ui.editGallery = false; ui.modal = null; render(); toast("Signed out of owner editing"); }
+  else if(act === "ownerLogout"){ lsDel("sas_gh_token"); ui.owner = false; ui.assets = false; ui.editSummary = false; ui.editGallery = false; ui.modal = null; render(); toast("Signed out of owner[...]
   else if(act === "prev"){ ui.month.m--; if(ui.month.m < 0){ ui.month.m = 11; ui.month.y--; } render(); }
   else if(act === "next"){ ui.month.m++; if(ui.month.m > 11){ ui.month.m = 0; ui.month.y++; } render(); }
   else if(act === "thisMonth"){ var n = new Date(); ui.month = { y:n.getFullYear(), m:n.getMonth() }; render(); }
@@ -386,7 +406,8 @@ app.addEventListener("click", async function(e){
   else if(act === "reallyDelete"){
     var id = ui.modal.id, next = JSON.parse(JSON.stringify(S));
     next.meetings = next.meetings.filter(function(m){ return m.id !== id; });
-    if(await save(next, "Meeting deleted")){ ui.modal = null; render(); }
+    // Save meetings to the calendar JSON file in /data
+    if(await saveCalendar(next.meetings, "Meeting deleted")){ ui.modal = null; render(); }
   }
   else if(act === "editSummary"){ ui.editSummary = true; render(); var ta = document.getElementById("sumText"); if(ta) ta.focus(); }
   else if(act === "cancelSummary"){ ui.editSummary = false; render(); }
@@ -459,7 +480,8 @@ app.addEventListener("submit", async function(e){
     if(existing){ rec.id = existing.id; nextM.meetings = nextM.meetings.map(function(m){ return m.id === rec.id ? rec : m; }); }
     else { rec.id = uid(); nextM.meetings.push(rec); }
     var d = parse(rec.date); ui.month = { y:d.getFullYear(), m:d.getMonth() };
-    if(await save(nextM, existing ? "Meeting updated" : "Meeting added")){ ui.modal = { kind:"detail", id:rec.id }; render(); }
+    // Save meetings to data/calender.json so the calendar is driven by a JSON file in /data
+    if(await saveCalendar(nextM.meetings, existing ? "Meeting updated" : "Meeting added")){ ui.modal = { kind:"detail", id:rec.id }; render(); }
   }
 });
 
@@ -478,7 +500,9 @@ render();
     if(res.ok){ var d = await res.json(); state.summary = d.summary || ""; state.photos = d.photos || state.photos; }
   }catch(e){}
   try{
-    var rc = await fetch("data/calender.json?t=" + Date.now(), { cache:"no-store" });
+    // Try the more-correct filename first (calendar.json), fall back to the historically-misspelled calender.json
+    var rc = await fetch("data/calendar.json?t=" + Date.now(), { cache:"no-store" });
+    if(!rc.ok) rc = await fetch("data/calender.json?t=" + Date.now(), { cache:"no-store" });
     if(rc.ok){
       var c = await rc.json();
       var list = Array.isArray(c) ? c : (c.meetings || []);
