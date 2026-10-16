@@ -1,15 +1,3 @@
 {
-  "meetings": [
-    {
-      "id": "m-example-2026-11-03",
-      "date": "2026-11-03",
-      "time": "15:30",
-      "name": "Model UN Practice Session",
-      "topic": "Climate action and global cooperation",
-      "chair": "Ms. Johnson",
-      "email": "msjohnson@sasaustin.org",
-      "sheet": "",
-      "guide": null
-    }
-  ]
+  "meetings": []
 }
