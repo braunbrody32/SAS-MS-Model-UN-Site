@@ -1,3 +1,12 @@
 {
-  "meetings": []
+  "meetings": [{
+      "date": "2026-10-17",
+      "time": "13:00-16:00",
+      "name": "Nile Crisis",
+      "topic": "Ethiopia builds reservoir dam on Blue Nile",
+      "chair": "James Berg",
+      "email": "jamesberg32@sasaustin.org",
+      "sheet": "https://docs.google.com/spreadsheets/d/1v6cBXGbBZLJg5Mxg02jEela-OrZZpZjfmr_Tqnq7u6A/edit?gid=0#gid=0",
+      "guide": "uploads/guides/Nile Crisis Committee Background guide.pdf"
+    }]
 }
